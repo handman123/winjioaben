@@ -1,7 +1,7 @@
 @echo off
 cd /d "%~dp0"
 
-:: Try Python exe first
+:: Try packaged exe first
 if exist "dist\GameDataKeeper.exe" (
     start "" "dist\GameDataKeeper.exe"
     exit
@@ -14,7 +14,5 @@ if %ERRORLEVEL% EQU 0 (
     exit
 )
 
-:: Fallback: PowerShell CLI
-echo Python not found. Running CLI version...
-powershell.exe -ExecutionPolicy Bypass -NoProfile -File "%~dp0scripts\core.ps1"
+echo Python not found. Please install Python or run the packaged exe.
 pause
