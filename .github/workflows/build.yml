@@ -22,8 +22,18 @@ jobs:
       - name: Build EXE
         run: pyinstaller --onefile --windowed --hidden-import psutil --name GameDataKeeper main.py
 
-      - name: Upload EXE
+      - name: Upload Artifact
         uses: actions/upload-artifact@v4
         with:
           name: GameDataKeeper-Windows
           path: dist/GameDataKeeper.exe
+
+      - name: Publish Release
+        uses: softprops/action-gh-release@v2
+        with:
+          tag_name: latest
+          name: Latest Build
+          body: 自动构建的最新版本。
+          files: dist/GameDataKeeper.exe
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
