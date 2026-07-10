@@ -273,17 +273,18 @@ class SteamTab(tk.Frame):
 
     def _refresh_history(self):
         self.tree.delete(*self.tree.get_children())
-        dd=self.app.data_drive; gc=config_manager.get_game()
-        if not dd or not gc: return
-        root=os.path.join(dd, "GameDataKeeper", "Saves", gc["backup_dir"])
-        if not os.path.exists(root): return
-        for dn in os.listdir(root):
-            bd=os.path.join(root, dn)
-            if os.path.isdir(bd):
-                for z in backup.list_all(bd):
-                    self.tree.insert("", "end",
-                        values=(z["name"], f"{z['size']/(1024*1024):.1f} MB"),
-                        tags=(os.path.join(bd, z["name"]),))
+        dd = self.app.data_drive
+        if not dd: return
+        for game in config_manager.get_games():
+            root = os.path.join(dd, "GameDataKeeper", "Saves", game["backup_dir"])
+            if not os.path.exists(root): continue
+            for dn in os.listdir(root):
+                bd = os.path.join(root, dn)
+                if os.path.isdir(bd):
+                    for z in backup.list_all(bd):
+                        self.tree.insert("", "end",
+                            values=(z["name"], f"{z['size']/(1024*1024):.1f} MB"),
+                            tags=(os.path.join(bd, z["name"]),))
 
     def _restore_selected(self):
         sel = self.tree.selection()
