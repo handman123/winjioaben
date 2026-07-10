@@ -139,11 +139,10 @@ class SteamTab(tk.Frame):
         os.startfile(d)
 
     def _open_save_dir(self):
-        games = config_manager.get_games()
-        if not games:
-            messagebox.showinfo("提示", "请先添加游戏（启动游戏后点[添加游戏]）"); return
-        # 打开第一个游戏的存档目录
-        p = games[0]["save_paths"][0]["path"]
+        game = self._get_selected_game()
+        if not game:
+            messagebox.showinfo("提示", "请先在已配置的游戏列表中选择一个游戏"); return
+        p = game["save_paths"][0]["path"]
         parent = os.path.dirname(p)
         if os.path.exists(parent):
             os.startfile(parent)
@@ -228,10 +227,18 @@ class SteamTab(tk.Frame):
             self.app.set_status("已取消"); return
         dd=self.app.data_drive; root=os.path.join(dd, "GameDataKeeper", "Saves")
         def task():
+            ok = True
             for sp in game.get("save_paths", []):
-                backup.backup(sp["path"], os.path.join(root, game["backup_dir"], sp["name"]),
+                r, info = backup.backup(sp["path"], os.path.join(root, game["backup_dir"], sp["name"]),
                               on_progress=self._on_progress)
-        def done(_): self.app.set_status(f"[{game['name']}] 存档已备份", "green")
+                if not r: ok = False
+            return ok
+        def done(ok):
+            if ok:
+                self.app.set_status(f"[{game['name']}] 存档已备份", "green")
+                self._refresh_game_list()
+            else:
+                messagebox.showerror("备份失败", "部分或全部存档备份失败，请检查源目录。")
         self.app.run_async(task, on_done=done, status="正在备份存档...")
 
     def _restore_saves(self):
@@ -242,10 +249,17 @@ class SteamTab(tk.Frame):
             self.app.set_status("已取消"); return
         dd=self.app.data_drive; root=os.path.join(dd, "GameDataKeeper", "Saves")
         def task():
+            ok = True
             for sp in game.get("save_paths", []):
-                backup.restore(sp["path"], os.path.join(root, game["backup_dir"], sp["name"]),
+                r, info = backup.restore(sp["path"], os.path.join(root, game["backup_dir"], sp["name"]),
                                on_progress=self._on_progress)
-        def done(_): self.app.set_status(f"[{game['name']}] 存档已恢复", "green")
+                if not r: ok = False
+            return ok
+        def done(ok):
+            if ok:
+                self.app.set_status(f"[{game['name']}] 存档已恢复", "green")
+            else:
+                messagebox.showerror("恢复失败", "部分或全部存档恢复失败，请检查备份文件。")
         self.app.run_async(task, on_done=done, status="正在恢复存档...")
 
     def _discover(self):
