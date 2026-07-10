@@ -1,15 +1,17 @@
+"""主窗口 — Tab 栏 + 状态栏 + 异步任务调度"""
+
 import tkinter as tk
-from tkinter import ttk, messagebox
-import threading, os, sys
+from tkinter import messagebox
+import threading
 
-sys.path.insert(0, os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
+from app.tab_registry import TabRegistry
+from app.status_bar import StatusBar
+from shared import disk, config_manager
 
-from core import disk, steam, backup, discovery, config_manager
-from ui.steam_tab import SteamTab
-from ui.placeholder_tab import PlaceholderTab
 
 TITLE = "GameDataKeeper v2.0 - 云电脑游戏数据持久化助手"
 SIZE = "740x560"
+
 
 class App:
     def __init__(self, root):
@@ -22,7 +24,7 @@ class App:
         # 初始化存档目录
         ok, missing = disk.validate()
         if not ok:
-            msg = f"存档目录不完整，缺少:\n" + "\n".join(f"  {m}" for m in missing)
+            msg = "存档目录不完整，缺少:\n" + "\n".join(f"  {m}" for m in missing)
             msg += "\n\n是否自动修复（创建缺失目录）？"
             if messagebox.askyesno("目录修复", msg):
                 disk.ensure()
@@ -32,37 +34,52 @@ class App:
                 return
 
         self.storage_root = disk.get_root()
-        self.steam_path = steam.find_path()
         self.game_cfg = config_manager.get_games()
 
+        self._ensure_registry()
         self._build_tabbar()
         self._build_statusbar()
 
+    def _ensure_registry(self):
+        """确保 Tab 已注册（在模块导入时自动完成）"""
+        # 导入 games 模块触发 register() 调用
+        import games  # noqa: F401
+
     # ── tab bar ─────────────────────────────────────────────
+
     def _build_tabbar(self):
         bar = tk.Frame(self.root, bg="#e6e6e6", height=36)
         bar.pack(fill="x", side="top")
         bar.pack_propagate(False)
+
         self.tab_btns = {}
         self.tab_frames = {}
         container = tk.Frame(self.root, bg="#f5f5f5")
         container.pack(fill="both", expand=True, side="top")
 
-        def make_tab(name, frame_class, *args):
-            btn = tk.Button(bar, text=name, font=("Microsoft YaHei", 10),
-                            relief="flat", bd=0, padx=20, pady=6,
-                            bg="#dcdcdc", fg="black", cursor="hand2",
-                            command=lambda n=name: self._switch_tab(n))
-            btn.pack(side="left")
-            self.tab_btns[name] = btn
-            frm = frame_class(container, self, *args)
-            self.tab_frames[name] = frm
-            return frm
+        tabs = TabRegistry.get_all()
+        if not tabs:
+            # 兜底：如果没有任何注册，创建一个占位提示
+            tk.Label(container, text="没有可用的游戏模块", fg="gray",
+                     bg="#f5f5f5", font=("Microsoft YaHei", 12)).pack(expand=True)
+            return
 
-        self.steam_page = make_tab("Steam", SteamTab)
-        make_tab("原神", PlaceholderTab, "原神", "原神账号凭证备份与恢复\n游戏截图备份")
-        make_tab("崩坏:星穹铁道", PlaceholderTab, "崩坏:星穹铁道", "崩铁账号凭证备份与恢复\n游戏截图备份")
-        self._switch_tab("Steam")
+        for entry in tabs:
+            self._make_tab(bar, container, entry.name, entry.tab_class)
+
+        # 默认激活第一个 Tab
+        first_name = tabs[0].name
+        self._switch_tab(first_name)
+
+    def _make_tab(self, bar, container, name, frame_class):
+        btn = tk.Button(bar, text=name, font=("Microsoft YaHei", 10),
+                        relief="flat", bd=0, padx=20, pady=6,
+                        bg="#dcdcdc", fg="black", cursor="hand2",
+                        command=lambda n=name: self._switch_tab(n))
+        btn.pack(side="left")
+        self.tab_btns[name] = btn
+        frm = frame_class(container, self)
+        self.tab_frames[name] = frm
 
     def _switch_tab(self, name):
         for n, b in self.tab_btns.items():
@@ -72,34 +89,33 @@ class App:
         self.tab_frames[name].pack(fill="both", expand=True)
 
     # ── status bar ──────────────────────────────────────────
+
     def _build_statusbar(self):
-        sb = tk.Frame(self.root, bg="#e0e0e0", height=28)
-        sb.pack(fill="x", side="bottom")
-        sb.pack_propagate(False)
-        self.status_var = tk.StringVar(value="就绪")
-        tk.Label(sb, textvariable=self.status_var, bg="#e0e0e0",
-                 fg="gray", anchor="w", padx=8).pack(side="left")
-        self.progress = ttk.Progressbar(sb, mode="indeterminate", length=120)
-        self.progress.pack(side="right", padx=8)
+        self._status_bar = StatusBar(self.root)
+        self._status_bar.pack(fill="x", side="bottom")
 
     def set_status(self, text, color="gray"):
-        self.status_var.set(text)
+        self._status_bar.set_status(text)
 
     def show_progress(self):
-        self.progress.pack(side="right", padx=8)
-        self.progress.start(10)
+        self._status_bar.show_progress()
 
     def hide_progress(self):
-        self.progress.stop()
-        self.progress.pack_forget()
+        self._status_bar.hide_progress()
+
+    # ── async ───────────────────────────────────────────────
 
     def run_async(self, task, on_done=None, status="处理中..."):
         self.set_status(status, "blue")
         self.show_progress()
+
         def wrapper():
-            try: result = task()
-            except Exception as e: result = e
+            try:
+                result = task()
+            except Exception as e:
+                result = e
             self.root.after(0, lambda: self._on_task_done(result, on_done))
+
         threading.Thread(target=wrapper, daemon=True).start()
 
     def _on_task_done(self, result, on_done):
@@ -113,7 +129,7 @@ class App:
 
     def refresh_info(self):
         self.storage_root = disk.get_root()
-        self.steam_path = steam.find_path()
         self.game_cfg = config_manager.get_games()
-        if hasattr(self, 'steam_page'):
-            self.steam_page.update_info()
+        for name, frame in self.tab_frames.items():
+            if hasattr(frame, 'update_info'):
+                frame.update_info()

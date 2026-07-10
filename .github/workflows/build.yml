@@ -23,7 +23,7 @@ jobs:
         run: pip install psutil pyinstaller
 
       - name: Build EXE
-        run: pyinstaller --onefile --windowed --hidden-import psutil --name GameDataKeeper main.py
+        run: pyinstaller --onefile --windowed --hidden-import psutil --hidden-import shared --hidden-import shared.exceptions --hidden-import shared.error_handler --hidden-import app --hidden-import app.main_window --hidden-import app.tab_registry --hidden-import games --hidden-import games.steam --hidden-import games.genshin --hidden-import games.hsr --hidden-import games._base --hidden-import games._base.base_tab --hidden-import games._base.base_core --collect-submodules games --name GameDataKeeper main.py
 
       - name: Upload Artifact
         uses: actions/upload-artifact@v4

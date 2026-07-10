@@ -1,23 +1,31 @@
-import os, zipfile, shutil
+import os
+import zipfile
 from datetime import datetime
+
+from shared.exceptions import SourceNotFoundError, SourceEmptyError, BackupError
+
 
 def _count(source_path):
     total_bytes = 0
     for root, dirs, files in os.walk(source_path):
         for f in files:
-            try: total_bytes += os.path.getsize(os.path.join(root, f))
-            except OSError: pass
+            try:
+                total_bytes += os.path.getsize(os.path.join(root, f))
+            except OSError:
+                pass
     return total_bytes
 
+
 def backup(source_path, backup_base_dir, max_backups=5, on_progress=None):
+    """备份源目录为 zip。成功返回 info dict，失败抛出 BackupError 子类。"""
     if not os.path.exists(source_path):
-        return False, "源目录不存在"
+        raise SourceNotFoundError(source_path)
     if not os.listdir(source_path):
-        return False, "源目录为空"
+        raise SourceEmptyError(source_path)
 
     total = _count(source_path)
     if total == 0:
-        return False, "源目录无文件"
+        raise SourceEmptyError(source_path)
 
     os.makedirs(backup_base_dir, exist_ok=True)
     ts = datetime.now().strftime("%Y-%m-%d_%H%M%S")
@@ -37,10 +45,11 @@ def backup(source_path, backup_base_dir, max_backups=5, on_progress=None):
                     except OSError:
                         pass
     except Exception as e:
-        if os.path.exists(zp): os.remove(zp)
-        return False, str(e)
+        if os.path.exists(zp):
+            os.remove(zp)
+        raise BackupError(f"压缩失败: {e}", detail=str(e))
 
-    # Rotation
+    # Rotation: keep at most max_backups
     zips = sorted([x for x in os.listdir(backup_base_dir) if x.endswith(".zip")], reverse=True)
     deleted = []
     while len(zips) > max_backups:
@@ -48,29 +57,41 @@ def backup(source_path, backup_base_dir, max_backups=5, on_progress=None):
         os.remove(os.path.join(backup_base_dir, old))
         deleted.append(old)
 
-    return True, {"zip": f"{ts}.zip", "zip_size": os.path.getsize(zp),
-                  "original": total, "count": len(zips), "deleted": deleted}
+    return {
+        "zip": f"{ts}.zip",
+        "zip_size": os.path.getsize(zp),
+        "original": total,
+        "count": len(zips),
+        "deleted": deleted,
+    }
+
 
 def restore(save_path, backup_base_dir, specific=None, on_progress=None):
+    """从 zip 恢复存档。成功返回 info dict，失败抛出 BackupError 子类。"""
     if not os.path.exists(backup_base_dir):
-        return False, "备份目录不存在"
+        raise BackupError(f"备份目录不存在: {backup_base_dir}", recoverable=True)
 
     zips = sorted([x for x in os.listdir(backup_base_dir) if x.endswith(".zip")], reverse=True)
     if not zips:
-        return False, "无可用备份"
+        raise BackupError("无可用备份", recoverable=True)
 
     zip_name = specific if specific else zips[0]
     zp = os.path.join(backup_base_dir, zip_name)
     if not os.path.exists(zp):
-        return False, f"文件不存在: {zip_name}"
+        raise BackupError(f"备份文件不存在: {zip_name}", recoverable=True)
 
+    # 清空目标目录
     os.makedirs(save_path, exist_ok=True)
     for item in os.listdir(save_path):
         ip = os.path.join(save_path, item)
         try:
-            if os.path.isfile(ip) or os.path.islink(ip): os.unlink(ip)
-            elif os.path.isdir(ip): shutil.rmtree(ip)
-        except: pass
+            if os.path.isfile(ip) or os.path.islink(ip):
+                os.unlink(ip)
+            elif os.path.isdir(ip):
+                import shutil
+                shutil.rmtree(ip)
+        except OSError:
+            pass
 
     try:
         with zipfile.ZipFile(zp, "r") as zf:
@@ -83,16 +104,21 @@ def restore(save_path, backup_base_dir, specific=None, on_progress=None):
                 if on_progress and total > 0:
                     on_progress(done, total)
     except Exception as e:
-        return False, str(e)
+        raise BackupError(f"解压失败: {e}", detail=str(e))
 
-    return True, {"zip": zip_name, "total": total}
+    return {"zip": zip_name, "total": total}
+
 
 def list_all(backup_base_dir):
+    """列出所有备份，按时间倒序"""
     if not os.path.exists(backup_base_dir):
         return []
     result = []
     for z in sorted([x for x in os.listdir(backup_base_dir) if x.endswith(".zip")], reverse=True):
         zp = os.path.join(backup_base_dir, z)
-        result.append({"name": z, "size": os.path.getsize(zp),
-            "time": datetime.fromtimestamp(os.path.getmtime(zp)).strftime("%Y-%m-%d %H:%M:%S")})
+        result.append({
+            "name": z,
+            "size": os.path.getsize(zp),
+            "time": datetime.fromtimestamp(os.path.getmtime(zp)).strftime("%Y-%m-%d %H:%M:%S"),
+        })
     return result
