@@ -68,6 +68,25 @@ class ConfigError(GameDataKeeperError):
     pass
 
 
+# ── 原神异常 ──
+
+class GenshinError(GameDataKeeperError):
+    """原神操作异常"""
+    pass
+
+
+class AccountNotFoundError(GenshinError):
+    """账号不存在"""
+    def __init__(self, name: str):
+        super().__init__(f"账号不存在: {name}", detail=name, recoverable=True)
+
+
+class AccountExistsError(GenshinError):
+    """账号已存在（保存时重名）"""
+    def __init__(self, name: str):
+        super().__init__(f"账号 [{name}] 已存在，是否覆盖？", detail=name, recoverable=True)
+
+
 # ── 存储目录异常 ──
 
 class StorageError(GameDataKeeperError):
