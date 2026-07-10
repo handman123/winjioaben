@@ -159,16 +159,32 @@ class SteamTab(tk.Frame):
         self.lbl_pct.config(text=f"{dm:.0f} MB / {tm:.0f} MB  ({pct}%)")
         if pct >= 100: self.pbar.pack_forget(); self.lbl_pct.config(text="完成")
 
+    # ── helpers ──────────────────────────────────────────────
+    def _check_game(self):
+        if not config_manager.get_game():
+            messagebox.showinfo("未配置", "请先启动游戏，然后点击 [发现存档] 自动配置。")
+            return False
+        return True
+
+    def _check_disk_steam(self):
+        if not self.app.data_drive:
+            messagebox.showinfo("数据盘未连接", "请插入数据盘后重试。")
+            return False
+        if not self.app.steam_path:
+            messagebox.showinfo("Steam未找到", "请确保Steam已安装。")
+            return False
+        return True
+
     # ── operations ──────────────────────────────────────────
     def _backup_all(self):
-        dd=self.app.data_drive; sp=self.app.steam_path
-        if not dd or not sp: return "数据盘或Steam不可用"
-        steam.backup(sp, dd); self._backup_saves()
+        if not self._check_disk_steam(): return
+        steam.backup(self.app.steam_path, self.app.data_drive)
+        self._backup_saves()
         self.app.set_status("全部备份完成", "green")
 
     def _restore_all(self):
-        dd=self.app.data_drive; sp=self.app.steam_path
-        if not dd or not sp: return "数据盘或Steam不可用"
+        if not self._check_disk_steam(): return
+        dd = self.app.data_drive; sp = self.app.steam_path
         if steam.is_running():
             if not messagebox.askyesno("Steam 正在运行", "需要关闭Steam，是否继续？"):
                 self.app.set_status("已取消"); return "已取消"
@@ -178,14 +194,14 @@ class SteamTab(tk.Frame):
         self.app.set_status("全部恢复完成", "green")
 
     def _backup_steam(self):
+        if not self._check_disk_steam(): return
         dd=self.app.data_drive; sp=self.app.steam_path
-        if not dd or not sp: return "数据盘或Steam不可用"
         steam.backup(sp, dd)
         self.app.set_status("Steam凭证已备份", "green")
 
     def _restore_steam(self):
+        if not self._check_disk_steam(): return
         dd=self.app.data_drive; sp=self.app.steam_path
-        if not dd or not sp: return "数据盘或Steam不可用"
         if steam.is_running():
             if not messagebox.askyesno("Steam 正在运行", "需要关闭Steam，是否继续？"):
                 self.app.set_status("已取消"); return "已取消"
@@ -194,8 +210,8 @@ class SteamTab(tk.Frame):
         self.app.set_status("Steam凭证已恢复", "green")
 
     def _backup_saves(self):
+        if not self._check_disk_steam() or not self._check_game(): return
         dd=self.app.data_drive; gc=config_manager.get_game()
-        if not dd or not gc: return "数据盘或游戏未配置"
         root=os.path.join(dd, "GameDataKeeper", "Saves")
         for sp in gc.get("save_paths", []):
             backup.backup(sp["path"], os.path.join(root, gc["backup_dir"], sp["name"]),
@@ -204,8 +220,8 @@ class SteamTab(tk.Frame):
         self.app.set_status("游戏存档已备份", "green")
 
     def _restore_saves(self):
+        if not self._check_disk_steam() or not self._check_game(): return
         dd=self.app.data_drive; gc=config_manager.get_game()
-        if not dd or not gc: return "数据盘或游戏未配置"
         root=os.path.join(dd, "GameDataKeeper", "Saves")
         for sp in gc.get("save_paths", []):
             backup.restore(sp["path"], os.path.join(root, gc["backup_dir"], sp["name"]),
@@ -214,21 +230,46 @@ class SteamTab(tk.Frame):
 
     def _discover(self):
         g = discovery.detect_running()
-        if not g:
-            messagebox.showinfo("未检测到游戏", "请先启动Steam游戏，再点击[发现存档]"); return
-        if not messagebox.askyesno("确认", f"检测到: {g['folder']}\n{g['root']}\n\n搜索存档目录？"): return
-        dirs = discovery.find_save_dirs(g["root"])
-        if not dirs:
-            messagebox.showwarning("未发现", "未找到存档目录"); return
+        if g:
+            if not messagebox.askyesno("确认", f"检测到: {g['folder']}\n{g['root']}\n\n搜索存档目录？"): return
+            dirs = discovery.find_save_dirs(g["root"])
+            if dirs:
+                self._save_discovery(g, dirs)
+                return
+            messagebox.showwarning("未发现", "找到游戏进程但未发现存档目录。\n请在弹出窗口中手动输入存档路径。")
+
+        # 检测失败 → 诊断 + 手动输入
+        diag = discovery.diag_processes()  # 返回当前可见进程列表
+        msg = "未检测到正在运行的 Steam 游戏。\n\n"
+        if diag:
+            msg += "当前可见进程（前15个有路径的）:\n"
+            msg += diag + "\n"
+        msg += "请手动输入游戏存档路径\n（例如 Z:\\steam\\steamapps\\common\\The Scroll Of Taiwu\\SaveGames）:"
+        path = self._ask_path(msg)
+        if path:
+            safe = os.path.basename(os.path.dirname(path))
+            config_manager.set_game(safe, safe, [{"name": "手动指定", "path": path, "description": ""}])
+            dd = self.app.data_drive
+            if dd:
+                os.makedirs(os.path.join(dd, "GameDataKeeper", "Saves", safe, "手动指定"), exist_ok=True)
+            self.app.refresh_info()
+            messagebox.showinfo("完成", f"已配置存档路径:\n{path}")
+
+    def _save_discovery(self, game, dirs):
         paths = [{"name": d["name"], "path": d["path"], "description": "自动发现"} for d in dirs]
-        config_manager.set_game(g["folder"], g["folder"], paths)
+        config_manager.set_game(game["folder"], game["folder"], paths)
         dd = self.app.data_drive
         if dd:
             for d in dirs:
                 os.makedirs(os.path.join(dd, "GameDataKeeper", "Saves",
-                    g["folder"].replace(" ","_"), d["name"]), exist_ok=True)
+                    game["folder"].replace(" ","_"), d["name"]), exist_ok=True)
         self.app.refresh_info()
-        messagebox.showinfo("完成", f"已配置 {g['folder']}")
+        messagebox.showinfo("完成", f"已配置 {game['folder']}\n{len(dirs)} 个存档目录")
+
+    def _ask_path(self, prompt):
+        """弹窗让用户输入路径"""
+        import tkinter.simpledialog as sd
+        return sd.askstring("手动配置存档", prompt)
 
     def _refresh_history(self):
         self.tree.delete(*self.tree.get_children())
@@ -247,10 +288,10 @@ class SteamTab(tk.Frame):
     def _restore_selected(self):
         sel = self.tree.selection()
         if not sel: messagebox.showinfo("提示", "请先选择一个备份"); return
+        if not self._check_game(): return
         zip_path = self.tree.item(sel[0], "tags")[0]
         zip_name = self.tree.item(sel[0], "values")[0]
         gc = config_manager.get_game()
-        if not gc: return
 
         def task():
             ok, info = backup.restore(gc["save_paths"][0]["path"],
