@@ -47,7 +47,6 @@ class App:
             btn.pack(side="left")
             self.tab_btns[name] = btn
             frm = frame_class(container, self, *args)
-            frm.place(relwidth=1, relheight=1)
             self.tab_frames[name] = frm
             return frm
 
@@ -60,7 +59,8 @@ class App:
         for n, b in self.tab_btns.items():
             b.configure(bg="#dcdcdc" if n != name else "#ffffff")
         for n, f in self.tab_frames.items():
-            f.tkraise()
+            f.pack_forget()
+        self.tab_frames[name].pack(fill="both", expand=True)
 
     # ── status bar ──────────────────────────────────────────
     def _build_statusbar(self):
