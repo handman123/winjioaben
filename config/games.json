@@ -1,0 +1,20 @@
+{
+    "version": "1.3",
+    "comment": "存档路径由脚本自动发现，可手动修改",
+    "games": [
+        {
+            "id": "the_scroll_of_taiwu",
+            "name": "The Scroll Of Taiwu",
+            "steam_appid": "",
+            "max_backups": 5,
+            "save_paths": [
+                {
+                    "name": "SaveGames",
+                    "path": "Z:\\steam\\steamapps\\common\\The Scroll Of Taiwu\\SaveGames",
+                    "description": "自动发现于 2026-07-07 15:30:24"
+                }
+            ],
+            "backup_dir": "The_Scroll_Of_Taiwu"
+        }
+    ]
+}
