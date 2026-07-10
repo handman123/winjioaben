@@ -12,7 +12,7 @@ class SteamTab(tk.Frame):
         g = tk.LabelFrame(self, text="系统状态", bg="#f5f5f5",
                           font=("Microsoft YaHei", 9), padx=8, pady=4)
         g.pack(fill="x", padx=10, pady=(10, 4))
-        self.lbl_disk = tk.Label(g, text="数据盘: 检测中...", bg="#f5f5f5", anchor="w")
+        self.lbl_disk = tk.Label(g, text="存档目录: 检测中...", bg="#f5f5f5", anchor="w")
         self.lbl_disk.pack(fill="x")
         self.lbl_steam = tk.Label(g, text="Steam: 检测中...", bg="#f5f5f5", anchor="w")
         self.lbl_steam.pack(fill="x")
@@ -91,9 +91,9 @@ class SteamTab(tk.Frame):
         self.update_info()
 
     def update_info(self):
-        dd = self.app.data_drive; sp = self.app.steam_path
+        dd = self.app.storage_root; sp = self.app.steam_path
         games = config_manager.get_games()
-        self.lbl_disk.config(text=f"数据盘: {dd} (已连接)" if dd else "数据盘: 未检测到",
+        self.lbl_disk.config(text=f"存档目录: {dd} (已连接)" if dd else "存档目录: 未检测到",
                              fg="green" if dd else "red")
         self.lbl_steam.config(text=f"Steam: {sp}" if sp else "Steam: 未找到",
                               fg="green" if sp else "red")
@@ -110,9 +110,9 @@ class SteamTab(tk.Frame):
     # ── game list ───────────────────────────────────────────
     def _refresh_game_list(self):
         self.game_tree.delete(*self.game_tree.get_children())
-        dd = self.app.data_drive
+        dd = self.app.storage_root
         games = sorted(config_manager.get_games(), key=lambda g: g["name"].lower())
-        saves_root = os.path.join(dd, "GameDataKeeper", "Saves") if dd else ""
+        saves_root = os.path.join(dd, "Saves") if dd else ""
         for game in games:
             for sp in game.get("save_paths", []):
                 sd = os.path.join(saves_root, game["backup_dir"], sp["name"]) if dd else ""
@@ -134,9 +134,9 @@ class SteamTab(tk.Frame):
         if sel:
             d = self.game_tree.item(sel[0], "tags")[0]
         else:
-            dd = self.app.data_drive
+            dd = self.app.storage_root
             if not dd: return
-            d = os.path.join(dd, "GameDataKeeper", "Saves")
+            d = os.path.join(dd, "Saves")
             if not os.path.exists(d): os.makedirs(d, exist_ok=True)
         os.startfile(d)
 
@@ -177,10 +177,7 @@ class SteamTab(tk.Frame):
             return False
         return True
 
-    def _check_disk_steam(self):
-        if not self.app.data_drive:
-            messagebox.showinfo("数据盘未连接", "请插入数据盘后重试。")
-            return False
+    def _check_storage(self):
         if not self.app.steam_path:
             messagebox.showinfo("Steam未找到", "请确保Steam已安装。")
             return False
@@ -202,29 +199,29 @@ class SteamTab(tk.Frame):
 
     # ── operations ──────────────────────────────────────────
     def _backup_steam(self):
-        if not self._check_disk_steam(): return
-        if not self._confirm("确认", "备份 Steam 登录凭证到数据盘？"):
+        if not self._check_storage(): return
+        if not self._confirm("确认", "备份 Steam 登录凭证到存档目录？"):
             self.app.set_status("已取消"); return
-        dd=self.app.data_drive; sp=self.app.steam_path
+        dd=self.app.storage_root; sp=self.app.steam_path
         def done(_): self.app.set_status("Steam凭证已备份", "green")
         self.app.run_async(lambda: steam.backup(sp, dd),
                            on_done=done, status="正在备份 Steam 凭证...")
 
     def _restore_steam(self):
-        if not self._check_disk_steam(): return
-        dd=self.app.data_drive; sp=self.app.steam_path
+        if not self._check_storage(): return
+        dd=self.app.storage_root; sp=self.app.steam_path
         if steam.is_running():
             if not messagebox.askyesno("Steam 正在运行", "需要关闭Steam，是否继续？"):
                 self.app.set_status("已取消"); return
             steam.kill()
-        if not self._confirm("确认", "从数据盘恢复 Steam 登录凭证？\n将覆盖当前 Steam 登录状态。"):
+        if not self._confirm("确认", "从存档目录恢复 Steam 登录凭证？\n将覆盖当前 Steam 登录状态。"):
             self.app.set_status("已取消"); return
         def done(_): self.app.set_status("Steam凭证已恢复", "green")
         self.app.run_async(lambda: (steam.restore(sp, dd), steam.launch(sp)),
                            on_done=done, status="正在恢复 Steam 凭证...")
 
     def _backup_saves(self):
-        if not self._check_disk_steam() or not self._check_game(): return
+        if not self._check_storage() or not self._check_game(): return
         game = self._get_selected_game()
         if not game: return
         # 安全检查：源目录存在且有文件
@@ -236,9 +233,9 @@ class SteamTab(tk.Frame):
             elif not os.listdir(p):
                 if not self._confirm("警告", f"存档目录为空:\n{p}\n\n可能游戏尚未创建存档。\n仍要继续备份？"):
                     self.app.set_status("已取消"); return
-        if not self._confirm("确认", f"备份 [ {game['name']} ] 的存档到数据盘？"):
+        if not self._confirm("确认", f"备份 [ {game['name']} ] 的存档到存档目录？"):
             self.app.set_status("已取消"); return
-        dd=self.app.data_drive; root=os.path.join(dd, "GameDataKeeper", "Saves")
+        dd=self.app.storage_root; root=os.path.join(dd, "Saves")
         def task():
             ok = True
             for sp in game.get("save_paths", []):
@@ -255,12 +252,12 @@ class SteamTab(tk.Frame):
         self.app.run_async(task, on_done=done, status="正在备份存档...")
 
     def _restore_saves(self):
-        if not self._check_disk_steam() or not self._check_game(): return
+        if not self._check_storage() or not self._check_game(): return
         game = self._get_selected_game()
         if not game: return
-        if not self._confirm("确认", f"从数据盘恢复 [ {game['name']} ] 的存档？\n将覆盖当前游戏存档！"):
+        if not self._confirm("确认", f"从存档目录恢复 [ {game['name']} ] 的存档？\n将覆盖当前游戏存档！"):
             self.app.set_status("已取消"); return
-        dd=self.app.data_drive; root=os.path.join(dd, "GameDataKeeper", "Saves")
+        dd=self.app.storage_root; root=os.path.join(dd, "Saves")
         def task():
             ok = True
             for sp in game.get("save_paths", []):
@@ -296,19 +293,19 @@ class SteamTab(tk.Frame):
         if path:
             safe = os.path.basename(os.path.dirname(path))
             config_manager.add_game(safe, safe, [{"name": "手动指定", "path": path, "description": ""}])
-            dd = self.app.data_drive
+            dd = self.app.storage_root
             if dd:
-                os.makedirs(os.path.join(dd, "GameDataKeeper", "Saves", safe, "手动指定"), exist_ok=True)
+                os.makedirs(os.path.join(dd, "Saves", safe, "手动指定"), exist_ok=True)
             self.app.refresh_info()
             messagebox.showinfo("完成", f"已配置存档路径:\n{path}")
 
     def _save_discovery(self, game, dirs):
         paths = [{"name": d["name"], "path": d["path"], "description": "自动发现"} for d in dirs]
         config_manager.add_game(game["folder"], game["folder"], paths)
-        dd = self.app.data_drive
+        dd = self.app.storage_root
         if dd:
             for d in dirs:
-                os.makedirs(os.path.join(dd, "GameDataKeeper", "Saves",
+                os.makedirs(os.path.join(dd, "Saves",
                     game["folder"].replace(" ","_"), d["name"]), exist_ok=True)
         self.app.refresh_info()
         messagebox.showinfo("完成", f"已添加 {game['folder']}\n{len(dirs)} 个存档目录")
@@ -320,11 +317,11 @@ class SteamTab(tk.Frame):
 
     def _refresh_history(self):
         self.tree.delete(*self.tree.get_children())
-        dd = self.app.data_drive
+        dd = self.app.storage_root
         if not dd: return
         game = self._get_selected_game()
         if not game: return
-        root = os.path.join(dd, "GameDataKeeper", "Saves", game["backup_dir"])
+        root = os.path.join(dd, "Saves", game["backup_dir"])
         if not os.path.exists(root): return
         for dn in sorted(os.listdir(root)):
             bd = os.path.join(root, dn)
@@ -345,7 +342,7 @@ class SteamTab(tk.Frame):
         target = None
         for g in games:
             for sp in g.get("save_paths", []):
-                if zip_path.startswith(os.path.join(self.app.data_drive, "GameDataKeeper", "Saves", g["backup_dir"])):
+                if zip_path.startswith(os.path.join(self.app.storage_root, "Saves", g["backup_dir"])):
                     target = sp["path"]; break
             if target: break
         if not target:

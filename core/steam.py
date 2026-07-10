@@ -29,7 +29,7 @@ def launch(steam_path):
         subprocess.Popen([exe], shell=True)
 
 def backup(steam_path, data_drive):
-    root = os.path.join(data_drive, "GameDataKeeper", "Steam")
+    root = os.path.join(data_drive, "Steam")
     cfg = os.path.join(root, "config"); ssfn = os.path.join(root, "ssfn")
     os.makedirs(cfg, exist_ok=True); os.makedirs(ssfn, exist_ok=True)
     r = []
@@ -47,7 +47,7 @@ def backup(steam_path, data_drive):
     return r
 
 def restore(steam_path, data_drive):
-    root = os.path.join(data_drive, "GameDataKeeper", "Steam")
+    root = os.path.join(data_drive, "Steam")
     r = []
     ssfn = os.path.join(root, "ssfn")
     if os.path.exists(ssfn):
