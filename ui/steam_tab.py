@@ -25,7 +25,7 @@ class SteamTab(tk.Frame):
         self.lbl_save.pack(side="left", padx=10)
 
         # ── stored games ──
-        sg = tk.LabelFrame(self, text="已存储的游戏", bg="#f5f5f5",
+        sg = tk.LabelFrame(self, text="已配置的游戏", bg="#f5f5f5",
                            font=("Microsoft YaHei", 9), padx=8, pady=4)
         sg.pack(fill="x", padx=10, pady=4)
 
@@ -34,6 +34,7 @@ class SteamTab(tk.Frame):
         for c, w in zip(cols, [140, 80, 60, 140, 80]):
             self.game_tree.heading(c, text=c); self.game_tree.column(c, width=w)
         self.game_tree.pack(side="left", fill="x", expand=True)
+        self.game_tree.bind("<<TreeviewSelect>>", lambda e: self._refresh_history())
 
         gf = tk.Frame(sg, bg="#f5f5f5"); gf.pack(side="right", padx=4)
         tk.Button(gf, text="打开目录", font=("Microsoft YaHei", 8),
@@ -50,18 +51,16 @@ class SteamTab(tk.Frame):
         def btn(text, cmd):
             b = tk.Button(ga, text=text, font=("Microsoft YaHei", 9),
                           relief="flat", bg="white", padx=14, pady=4,
-                          command=lambda: self.app.run_async(cmd, status=text+"..."))
+                          command=cmd)
             self._action_btns.append(b)
             return b
 
         r1 = tk.Frame(ga, bg="#f5f5f5"); r1.pack(fill="x", pady=2)
-        btn("备份全部", self._backup_all).pack(side="left", padx=2)
-        btn("恢复全部", self._restore_all).pack(side="left", padx=2)
         btn("备份存档", self._backup_saves).pack(side="left", padx=2)
+        btn("恢复存档", self._restore_saves).pack(side="left", padx=2)
         r2 = tk.Frame(ga, bg="#f5f5f5"); r2.pack(fill="x", pady=2)
         btn("备份Steam凭证", self._backup_steam).pack(side="left", padx=2)
         btn("恢复Steam凭证", self._restore_steam).pack(side="left", padx=2)
-        btn("恢复最新存档", self._restore_saves).pack(side="left", padx=2)
 
         # ── progress ──
         self.pbar = ttk.Progressbar(self, mode="determinate", length=400)
@@ -70,7 +69,7 @@ class SteamTab(tk.Frame):
         self.lbl_pct.pack()
 
         # ── history ──
-        gh = tk.LabelFrame(self, text="存档历史", bg="#f5f5f5",
+        gh = tk.LabelFrame(self, text="历史存档", bg="#f5f5f5",
                            font=("Microsoft YaHei", 9), padx=8, pady=4)
         gh.pack(fill="both", expand=True, padx=10, pady=4)
         hcols = ("时间", "大小")
@@ -105,28 +104,28 @@ class SteamTab(tk.Frame):
             self.lbl_save.config(text="存档: 未配置（启动游戏后点[添加游戏]）", fg="red")
             self.btn_discover.config(text="添加游戏")
         self._refresh_game_list()
-        self._refresh_history()
 
     # ── game list ───────────────────────────────────────────
     def _refresh_game_list(self):
         self.game_tree.delete(*self.game_tree.get_children())
         dd = self.app.data_drive
-        if not dd: return
-        saves_root = os.path.join(dd, "GameDataKeeper", "Saves")
-        if not os.path.exists(saves_root): return
-        for game_dir in os.listdir(saves_root):
-            gd = os.path.join(saves_root, game_dir)
-            if not os.path.isdir(gd): continue
-            for save_type in os.listdir(gd):
-                sd = os.path.join(gd, save_type)
-                if not os.path.isdir(sd): continue
-                zips = backup.list_all(sd)
-                if not zips: continue
-                total_size = sum(z["size"] for z in zips)
+        games = sorted(config_manager.get_games(), key=lambda g: g["name"].lower())
+        saves_root = os.path.join(dd, "GameDataKeeper", "Saves") if dd else ""
+        for game in games:
+            for sp in game.get("save_paths", []):
+                sd = os.path.join(saves_root, game["backup_dir"], sp["name"]) if dd else ""
+                zips = backup.list_all(sd) if dd and os.path.exists(sd) else []
+                count = len(zips)
+                last = zips[0]["time"] if zips else "暂无"
+                total = sum(z["size"] for z in zips)
                 self.game_tree.insert("", "end",
-                    values=(game_dir, save_type, len(zips), zips[0]["time"],
-                            f"{total_size/(1024*1024):.1f} MB"),
+                    values=(game["name"], sp["name"], count, last,
+                            f"{total/(1024*1024):.1f} MB" if total else "—"),
                     tags=(sd,))
+        # 默认选中第一行
+        if self.game_tree.get_children():
+            self.game_tree.selection_set(self.game_tree.get_children()[0])
+        self._refresh_history()
 
     def _open_backup_dir(self):
         sel = self.game_tree.selection()
@@ -175,58 +174,79 @@ class SteamTab(tk.Frame):
             return False
         return True
 
+    def _get_selected_game(self):
+        """返回用户选中的游戏，未选择则默认第一个"""
+        sel = self.game_tree.selection()
+        if sel:
+            game_name = self.game_tree.item(sel[0], "values")[0]
+            for g in config_manager.get_games():
+                if g["name"] == game_name:
+                    return g
+        games = config_manager.get_games()
+        return games[0] if games else None
+
+    def _confirm(self, title, msg):
+        return messagebox.askyesno(title, msg)
+
     # ── operations ──────────────────────────────────────────
-    def _backup_all(self):
-        if not self._check_disk_steam(): return
-        steam.backup(self.app.steam_path, self.app.data_drive)
-        self._backup_saves()
-        self.app.set_status("全部备份完成", "green")
-
-    def _restore_all(self):
-        if not self._check_disk_steam(): return
-        dd = self.app.data_drive; sp = self.app.steam_path
-        if steam.is_running():
-            if not messagebox.askyesno("Steam 正在运行", "需要关闭Steam，是否继续？"):
-                self.app.set_status("已取消"); return "已取消"
-            steam.kill()
-        steam.restore(sp, dd); steam.launch(sp)
-        self._restore_saves()
-        self.app.set_status("全部恢复完成", "green")
-
     def _backup_steam(self):
         if not self._check_disk_steam(): return
+        if not self._confirm("确认", "备份 Steam 登录凭证到数据盘？"):
+            self.app.set_status("已取消"); return
         dd=self.app.data_drive; sp=self.app.steam_path
-        steam.backup(sp, dd)
-        self.app.set_status("Steam凭证已备份", "green")
+        def done(_): self.app.set_status("Steam凭证已备份", "green")
+        self.app.run_async(lambda: steam.backup(sp, dd),
+                           on_done=done, status="正在备份 Steam 凭证...")
 
     def _restore_steam(self):
         if not self._check_disk_steam(): return
         dd=self.app.data_drive; sp=self.app.steam_path
         if steam.is_running():
             if not messagebox.askyesno("Steam 正在运行", "需要关闭Steam，是否继续？"):
-                self.app.set_status("已取消"); return "已取消"
+                self.app.set_status("已取消"); return
             steam.kill()
-        steam.restore(sp, dd); steam.launch(sp)
-        self.app.set_status("Steam凭证已恢复", "green")
+        if not self._confirm("确认", "从数据盘恢复 Steam 登录凭证？\n将覆盖当前 Steam 登录状态。"):
+            self.app.set_status("已取消"); return
+        def done(_): self.app.set_status("Steam凭证已恢复", "green")
+        self.app.run_async(lambda: (steam.restore(sp, dd), steam.launch(sp)),
+                           on_done=done, status="正在恢复 Steam 凭证...")
 
     def _backup_saves(self):
         if not self._check_disk_steam() or not self._check_game(): return
+        game = self._get_selected_game()
+        if not game: return
+        # 安全检查：源目录存在且有文件
+        for sp in game.get("save_paths", []):
+            p = sp["path"]
+            if not os.path.exists(p):
+                if not self._confirm("警告", f"存档目录不存在:\n{p}\n\n可能游戏尚未创建存档。\n仍要继续备份？"):
+                    self.app.set_status("已取消"); return
+            elif not os.listdir(p):
+                if not self._confirm("警告", f"存档目录为空:\n{p}\n\n可能游戏尚未创建存档。\n仍要继续备份？"):
+                    self.app.set_status("已取消"); return
+        if not self._confirm("确认", f"备份 [ {game['name']} ] 的存档到数据盘？"):
+            self.app.set_status("已取消"); return
         dd=self.app.data_drive; root=os.path.join(dd, "GameDataKeeper", "Saves")
-        for game in config_manager.get_games():
+        def task():
             for sp in game.get("save_paths", []):
                 backup.backup(sp["path"], os.path.join(root, game["backup_dir"], sp["name"]),
                               on_progress=self._on_progress)
-        self._refresh_game_list(); self._refresh_history()
-        self.app.set_status("游戏存档已备份", "green")
+        def done(_): self.app.set_status(f"[{game['name']}] 存档已备份", "green")
+        self.app.run_async(task, on_done=done, status="正在备份存档...")
 
     def _restore_saves(self):
         if not self._check_disk_steam() or not self._check_game(): return
+        game = self._get_selected_game()
+        if not game: return
+        if not self._confirm("确认", f"从数据盘恢复 [ {game['name']} ] 的存档？\n将覆盖当前游戏存档！"):
+            self.app.set_status("已取消"); return
         dd=self.app.data_drive; root=os.path.join(dd, "GameDataKeeper", "Saves")
-        for game in config_manager.get_games():
+        def task():
             for sp in game.get("save_paths", []):
                 backup.restore(sp["path"], os.path.join(root, game["backup_dir"], sp["name"]),
                                on_progress=self._on_progress)
-        self.app.set_status("游戏存档已恢复", "green")
+        def done(_): self.app.set_status(f"[{game['name']}] 存档已恢复", "green")
+        self.app.run_async(task, on_done=done, status="正在恢复存档...")
 
     def _discover(self):
         g = discovery.detect_running()
@@ -275,16 +295,17 @@ class SteamTab(tk.Frame):
         self.tree.delete(*self.tree.get_children())
         dd = self.app.data_drive
         if not dd: return
-        for game in config_manager.get_games():
-            root = os.path.join(dd, "GameDataKeeper", "Saves", game["backup_dir"])
-            if not os.path.exists(root): continue
-            for dn in os.listdir(root):
-                bd = os.path.join(root, dn)
-                if os.path.isdir(bd):
-                    for z in backup.list_all(bd):
-                        self.tree.insert("", "end",
-                            values=(z["name"], f"{z['size']/(1024*1024):.1f} MB"),
-                            tags=(os.path.join(bd, z["name"]),))
+        game = self._get_selected_game()
+        if not game: return
+        root = os.path.join(dd, "GameDataKeeper", "Saves", game["backup_dir"])
+        if not os.path.exists(root): return
+        for dn in sorted(os.listdir(root)):
+            bd = os.path.join(root, dn)
+            if os.path.isdir(bd):
+                for z in backup.list_all(bd):
+                    self.tree.insert("", "end",
+                        values=(z["name"], f"{z['size']/(1024*1024):.1f} MB"),
+                        tags=(os.path.join(bd, z["name"]),))
 
     def _restore_selected(self):
         sel = self.tree.selection()
