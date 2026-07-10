@@ -6,7 +6,7 @@ from tkinter import ttk, messagebox
 
 from games._base.card import Card
 from games.steam.core import steam_config
-from shared import backup as backup_engine
+from utils import backup as backup_engine
 
 
 class GameListCard(Card):

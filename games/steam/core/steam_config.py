@@ -1,6 +1,6 @@
 """Steam 游戏配置 — 读写 config/steam.json"""
 
-from shared import config_manager
+from utils import config_manager
 
 CONFIG = "config/steam.json"
 

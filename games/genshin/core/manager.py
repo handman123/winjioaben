@@ -5,7 +5,7 @@ import subprocess
 
 from games._base.base_core import BaseGameCore
 from games.genshin.core import credential
-from shared.exceptions import AccountNotFoundError, AccountExistsError
+from utils.exceptions import AccountNotFoundError, AccountExistsError
 from games._base.supports_accounts import SupportsMultiAccount
 
 

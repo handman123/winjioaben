@@ -6,7 +6,7 @@ import subprocess
 import tempfile
 from datetime import datetime
 
-from shared.exceptions import AccountNotFoundError, AccountExistsError, GenshinError
+from utils.exceptions import AccountNotFoundError, AccountExistsError, GenshinError
 
 # 全量覆盖国服 + 国际服 + SDK
 REGISTRY_KEYS = [
@@ -16,7 +16,7 @@ REGISTRY_KEYS = [
     r"HKEY_CURRENT_USER\Software\Cognosphere",
 ]
 
-ACCOUNTS_FILE = "Genshin/accounts.json"
+ACCOUNTS_FILE = "Saves/Genshin/accounts.json"
 
 
 # ── JSON 文件读写 ──────────────────────────────────────

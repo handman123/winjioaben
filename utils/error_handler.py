@@ -11,7 +11,7 @@ from typing import Callable, Any
 def _get_log_dir() -> str:
     """获取日志目录（GameDataKeeper/ 根目录），写入失败则返回空字符串"""
     try:
-        import shared.disk as disk
+        import utils.disk as disk
         return disk.get_root()
     except Exception:
         return ""
@@ -22,7 +22,7 @@ def log_error(context: str, error: Exception):
     ts = datetime.now().strftime("%Y-%m-%d %H:%M:%S")
     msg = f"[{ts}] [{context}] {type(error).__name__}: {error}"
 
-    from shared.exceptions import GameDataKeeperError
+    from utils.exceptions import GameDataKeeperError
     if isinstance(error, GameDataKeeperError) and error.detail:
         msg += f"\n  详情: {error.detail}"
 
@@ -48,7 +48,7 @@ def handle_errors(context: str = "操作", *, reraise: bool = False):
     - 返回值: 异常时返回 None（safe fallback）
     """
     import tkinter.messagebox as messagebox
-    from shared.exceptions import GameDataKeeperError
+    from utils.exceptions import GameDataKeeperError
 
     def decorator(func: Callable) -> Callable:
         @functools.wraps(func)

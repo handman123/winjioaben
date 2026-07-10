@@ -10,7 +10,7 @@ from games.steam.ui.action_card import ActionCard
 from games.steam.ui.history_card import HistoryCard
 from games.steam.core import SteamCore
 from games.steam.core import steam_config
-from shared.exceptions import GameDataKeeperError
+from utils.exceptions import GameDataKeeperError
 
 
 class SteamPage(Page):

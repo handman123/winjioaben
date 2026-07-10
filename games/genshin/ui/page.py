@@ -7,7 +7,7 @@ from games._base.page import Page
 from games.genshin.ui.info_card import InfoCard
 from games._shared.account_card import AccountCard
 from games.genshin.core.manager import GenshinCore
-from shared.exceptions import GameDataKeeperError, AccountExistsError
+from utils.exceptions import GameDataKeeperError, AccountExistsError
 
 
 class GenshinPage(Page):

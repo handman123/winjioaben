@@ -1,7 +1,7 @@
 import os
 import sys
 
-REQUIRED_DIRS = ["Steam/config", "Steam/ssfn", "Saves"]
+REQUIRED_DIRS = ["Saves/Steam/config", "Saves/Steam/ssfn", "Saves/Genshin"]
 
 
 def _exe_dir():
@@ -11,7 +11,9 @@ def _exe_dir():
 
 
 def get_root():
-    """返回存档根目录（exe 同级的 GameDataKeeper 目录）"""
+    """返回存档根目录。打包后即 exe 所在目录，开发时用 GameDataKeeper/ 子目录"""
+    if getattr(sys, 'frozen', False):
+        return _exe_dir()
     return os.path.join(_exe_dir(), "GameDataKeeper")
 
 

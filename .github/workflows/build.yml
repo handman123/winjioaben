@@ -1,4 +1,4 @@
-name: Build Windows EXE
+name: Build
 
 on:
   push:
@@ -23,13 +23,23 @@ jobs:
         run: pip install psutil pyinstaller
 
       - name: Build EXE
-        run: pyinstaller --onefile --windowed --hidden-import psutil --hidden-import shared --hidden-import shared.exceptions --hidden-import shared.error_handler --hidden-import app --hidden-import app.main_window --hidden-import app.tab_registry --hidden-import games --hidden-import games.steam --hidden-import games.genshin --hidden-import games.hsr --hidden-import games._base --hidden-import games._base.base_tab --hidden-import games._base.base_core --collect-submodules games --name GameDataKeeper main.py
+        run: pyinstaller --onedir --windowed --name GameDataKeeper main.py
+
+      - name: Prepare package
+        shell: bash
+        run: |
+          cp -r config dist/GameDataKeeper/
+          mkdir -p dist/GameDataKeeper/Saves
+
+      - name: Package
+        shell: bash
+        run: cd dist && 7z a GameDataKeeper.zip GameDataKeeper/
 
       - name: Upload Artifact
         uses: actions/upload-artifact@v4
         with:
           name: GameDataKeeper-Windows
-          path: dist/GameDataKeeper.exe
+          path: dist/GameDataKeeper.zip
 
       - name: Set release type
         id: rel
@@ -51,7 +61,7 @@ jobs:
           tag_name: ${{ steps.rel.outputs.tag }}
           name: ${{ steps.rel.outputs.name }}
           body: ${{ steps.rel.outputs.name }} — 自动构建。
-          files: dist/GameDataKeeper.exe
+          files: dist/GameDataKeeper.zip
           prerelease: ${{ steps.rel.outputs.prerelease }}
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}

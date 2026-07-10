@@ -8,8 +8,8 @@ def _project_root():
     import sys
     if getattr(sys, 'frozen', False):
         return os.path.dirname(sys.executable)
-    # shared/config_manager.py → project root (2 levels up)
-    return os.path.dirname(os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
+    # utils/config_manager.py → project root (2 levels up)
+    return os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
 
 
 def load_json(rel_path: str) -> dict | None:

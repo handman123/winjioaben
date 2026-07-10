@@ -5,7 +5,7 @@ import subprocess
 import time
 import winreg
 
-from shared.exceptions import SteamNotInstalledError, RegistryAccessError
+from utils.exceptions import SteamNotInstalledError, RegistryAccessError
 
 
 def find_path():
@@ -48,7 +48,7 @@ def launch(steam_path):
 
 def backup(steam_path, data_drive):
     """备份 Steam 凭证到数据盘。成功返回已备份项列表。"""
-    root = os.path.join(data_drive, "Steam")
+    root = os.path.join(data_drive, "Saves", "Steam")
     cfg_d = os.path.join(root, "config")
     ssfn_d = os.path.join(root, "ssfn")
     os.makedirs(cfg_d, exist_ok=True)
@@ -81,7 +81,7 @@ def backup(steam_path, data_drive):
 
 def restore(steam_path, data_drive):
     """从数据盘恢复 Steam 凭证。成功返回已恢复项列表。"""
-    root = os.path.join(data_drive, "Steam")
+    root = os.path.join(data_drive, "Saves", "Steam")
     r = []
 
     ssfn_d = os.path.join(root, "ssfn")

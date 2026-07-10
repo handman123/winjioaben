@@ -38,7 +38,7 @@ class InfoCard(Card):
             text=f"数据盘: {dd} (已连接)" if dd else "数据盘: 未检测到",
             fg="green" if dd else "red")
 
-        cred_dir = os.path.join(dd, "Genshin") if dd else ""
+        cred_dir = os.path.join(dd, "Saves", "Genshin") if dd else ""
         self.lbl_cred.config(text=f"凭证位置: {cred_dir}" if dd else "凭证位置: —")
 
         from games.genshin.core import genshin_config
@@ -57,7 +57,7 @@ class InfoCard(Card):
     def _open_cred_dir(self):
         dd = self.app.storage_root
         if dd:
-            d = os.path.join(dd, "Genshin")
+            d = os.path.join(dd, "Saves", "Genshin")
             os.makedirs(d, exist_ok=True)
             os.startfile(d)
 

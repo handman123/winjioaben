@@ -1,6 +1,6 @@
 """原神配置 — 读写 config/genshin.json"""
 
-from shared import config_manager
+from utils import config_manager
 
 CONFIG = "config/genshin.json"
 

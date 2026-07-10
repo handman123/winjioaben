@@ -6,7 +6,7 @@ import threading
 
 from app.tab_registry import TabRegistry
 from app.status_bar import StatusBar
-from shared import disk
+from utils import disk
 
 
 TITLE = "GameDataKeeper v2.0 - 云电脑游戏数据持久化助手"
