@@ -3,7 +3,7 @@
 import tkinter as tk
 
 from games._base.card import Card
-from shared import config_manager
+from games.steam.core import steam_config
 
 
 class StatusCard(Card):
@@ -37,7 +37,7 @@ class StatusCard(Card):
         self.lbl_disk.config(
             text=f"存档目录: {dd} (已连接)" if dd else "存档目录: 未检测到",
             fg="green" if dd else "red")
-        games = config_manager.get_games()
+        games = steam_config.get_games()
         if games:
             self.lbl_count.config(text=f"已配置 {len(games)} 款游戏", fg="green")
         else:

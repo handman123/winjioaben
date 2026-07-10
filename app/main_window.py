@@ -6,7 +6,7 @@ import threading
 
 from app.tab_registry import TabRegistry
 from app.status_bar import StatusBar
-from shared import disk, config_manager
+from shared import disk
 
 
 TITLE = "GameDataKeeper v2.0 - 云电脑游戏数据持久化助手"
@@ -34,7 +34,6 @@ class App:
                 return
 
         self.storage_root = disk.get_root()
-        self.game_cfg = config_manager.get_games()
 
         self._ensure_registry()
         self._build_tabbar()
@@ -129,7 +128,6 @@ class App:
 
     def refresh_info(self):
         self.storage_root = disk.get_root()
-        self.game_cfg = config_manager.get_games()
         for name, frame in self.tab_frames.items():
             if hasattr(frame, 'update_info'):
                 frame.update_info()

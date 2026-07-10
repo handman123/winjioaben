@@ -9,7 +9,7 @@ from games.steam.ui.game_list_card import GameListCard
 from games.steam.ui.action_card import ActionCard
 from games.steam.ui.history_card import HistoryCard
 from games.steam.core import SteamCore
-from shared import config_manager
+from games.steam.core import steam_config
 from shared.exceptions import GameDataKeeperError
 
 
@@ -81,7 +81,7 @@ class SteamPage(Page):
         if not g:
             return
         target = None
-        for gm in config_manager.get_games():
+        for gm in steam_config.get_games():
             for sp in gm.get("save_paths", []):
                 if zip_path.startswith(os.path.join(self.app.storage_root, "Saves", gm["backup_dir"])):
                     target = sp["path"]; break
@@ -141,7 +141,7 @@ class SteamPage(Page):
             dirs = self.core.find_save_dirs(g["root"])
             if dirs:
                 paths = [{"name": d["name"], "path": d["path"], "description": "自动发现"} for d in dirs]
-                config_manager.add_game(g["folder"], g["folder"], paths)
+                steam_config.add_game(g["folder"], g["folder"], paths)
                 dd = self.app.storage_root
                 if dd:
                     for d in dirs:
@@ -160,7 +160,7 @@ class SteamPage(Page):
         path = self._ask_path(msg)
         if path:
             safe = os.path.basename(os.path.dirname(path))
-            config_manager.add_game(safe, safe, [{"name": "手动指定", "path": path, "description": ""}])
+            steam_config.add_game(safe, safe, [{"name": "手动指定", "path": path, "description": ""}])
             dd = self.app.storage_root
             if dd:
                 os.makedirs(os.path.join(dd, "Saves", safe, "手动指定"), exist_ok=True)

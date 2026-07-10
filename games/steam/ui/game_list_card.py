@@ -5,7 +5,8 @@ import tkinter as tk
 from tkinter import ttk, messagebox
 
 from games._base.card import Card
-from shared import config_manager, backup as backup_engine
+from games.steam.core import steam_config
+from shared import backup as backup_engine
 
 
 class GameListCard(Card):
@@ -34,7 +35,7 @@ class GameListCard(Card):
     def refresh(self):
         self.tree.delete(*self.tree.get_children())
         dd = self.app.storage_root
-        games = sorted(config_manager.get_games(), key=lambda g: g["name"].lower())
+        games = sorted(steam_config.get_games(), key=lambda g: g["name"].lower())
         saves_root = os.path.join(dd, "Saves") if dd else ""
         for game in games:
             for sp in game.get("save_paths", []):
@@ -54,10 +55,10 @@ class GameListCard(Card):
         sel = self.tree.selection()
         if sel:
             name = self.tree.item(sel[0], "values")[0]
-            for g in config_manager.get_games():
+            for g in steam_config.get_games():
                 if g["name"] == name:
                     return g
-        games = config_manager.get_games()
+        games = steam_config.get_games()
         return games[0] if games else None
 
     def _emit_select(self):
@@ -89,6 +90,6 @@ class GameListCard(Card):
             messagebox.showinfo("提示", "请先选择游戏")
             return
         if messagebox.askyesno("确认", f"删除 [{g['name']}] 的配置？"):
-            config_manager.remove_game(g["backup_dir"])
+            steam_config.remove_game(g["backup_dir"])
             self.app.refresh()
             self.app.set_status(f"已删除 {g['name']}")

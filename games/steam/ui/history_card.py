@@ -5,7 +5,7 @@ import tkinter as tk
 from tkinter import ttk, messagebox
 
 from games._base.card import Card
-from shared import config_manager, backup as backup_engine
+from shared import backup as backup_engine
 
 
 class HistoryCard(Card):

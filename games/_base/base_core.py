@@ -8,7 +8,7 @@ BaseGameCore — 通用游戏业务逻辑基类。
 import os
 
 from shared import backup as backup_engine
-from shared import config_manager, disk
+from shared import disk
 from shared.exceptions import GameDataKeeperError
 
 

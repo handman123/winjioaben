@@ -8,12 +8,12 @@ from games._base.card import Card
 
 class AccountCard(Card):
     def __init__(self, parent, app, account_manager, *,
-                 on_save=None, on_switch=None, on_update=None,
+                 on_save=None, on_switch=None,
                  on_rename=None, on_delete=None):
         super().__init__(parent, "账号管理")
         self.app = app
         self._mgr = account_manager
-        self._cb = {"save": on_save, "switch": on_switch, "update": on_update,
+        self._cb = {"save": on_save, "switch": on_switch,
                     "rename": on_rename, "delete": on_delete}
 
         cols = ("账号名", "最近更新")
@@ -25,9 +25,8 @@ class AccountCard(Card):
         self.tree.pack(side="left", fill="x", expand=True)
 
         bf = tk.Frame(self, bg="#f5f5f5"); bf.pack(side="right", padx=4)
-        for label, key in [("保存当前账号", "save"), ("切换到此账号", "switch"),
-                           ("更新此账号", "update"), ("重命名", "rename"),
-                           ("删除账号", "delete")]:
+        for label, key in [("保存当前登录", "save"), ("切换到选中", "switch"),
+                           ("重命名", "rename"), ("删除账号", "delete")]:
             tk.Button(bf, text=label, font=("Microsoft YaHei", 8),
                       relief="flat", bg="white", padx=4, pady=2, width=12,
                       command=self._make_handler(key)).pack(pady=1)
@@ -36,7 +35,7 @@ class AccountCard(Card):
         cb = self._cb.get(key)
         if not cb:
             return lambda: None
-        if key in ("switch", "update", "rename", "delete"):
+        if key in ("switch", "rename", "delete"):
             return lambda: cb(self._selected())
         return cb
 
