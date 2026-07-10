@@ -23,7 +23,7 @@ class App:
 
         self.data_drive = disk.find()
         self.steam_path = steam.find_path()
-        self.game_cfg = config_manager.get_game()
+        self.game_cfg = config_manager.get_games()
 
         self._build_tabbar()
         self._build_statusbar()
@@ -110,6 +110,6 @@ class App:
     def refresh_info(self):
         self.data_drive = disk.find()
         self.steam_path = steam.find_path()
-        self.game_cfg = config_manager.get_game()
+        self.game_cfg = config_manager.get_games()
         if hasattr(self, 'steam_page'):
             self.steam_page.update_info()
