@@ -41,6 +41,8 @@ class SteamTab(tk.Frame):
                   relief="flat", bg="white", command=self._open_backup_dir).pack(pady=2)
         tk.Button(gf, text="查看存档", font=("Microsoft YaHei", 8),
                   relief="flat", bg="white", command=self._open_save_dir).pack(pady=2)
+        tk.Button(gf, text="删除游戏", font=("Microsoft YaHei", 8),
+                  relief="flat", bg="white", fg="red", command=self._delete_game).pack(pady=2)
 
         # ── actions ──
         ga = tk.LabelFrame(self, text="快捷操作", bg="#f5f5f5",
@@ -142,12 +144,23 @@ class SteamTab(tk.Frame):
         game = self._get_selected_game()
         if not game:
             messagebox.showinfo("提示", "请先在已配置的游戏列表中选择一个游戏"); return
-        p = game["save_paths"][0]["path"]
-        parent = os.path.dirname(p)
-        if os.path.exists(parent):
-            os.startfile(parent)
-        else:
-            messagebox.showinfo("提示", f"目录尚不存在:\n{parent}")
+        # 如果有多个存档路径，打开第一个存在的
+        for sp in game.get("save_paths", []):
+            parent = os.path.dirname(sp["path"])
+            if os.path.exists(parent):
+                os.startfile(parent)
+                return
+        messagebox.showinfo("提示", "存档目录尚不存在")
+
+    def _delete_game(self):
+        game = self._get_selected_game()
+        if not game:
+            messagebox.showinfo("提示", "请先在已配置的游戏列表中选择一个游戏"); return
+        if not messagebox.askyesno("确认删除", f"删除 [ {game['name']} ] 的配置？\n（不会删除已备份的存档文件）"):
+            return
+        config_manager.remove_game(game["backup_dir"])
+        self.app.refresh_info()
+        self.app.set_status(f"已删除 {game['name']}")
 
     # ── progress ────────────────────────────────────────────
     def _on_progress(self, done, total):

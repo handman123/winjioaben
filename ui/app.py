@@ -22,6 +22,8 @@ class App:
         self.root.configure(bg="#f5f5f5")
 
         self.data_drive = disk.find()
+        if self.data_drive:
+            config_manager.set_data_drive(self.data_drive)
         self.steam_path = steam.find_path()
         self.game_cfg = config_manager.get_games()
 
@@ -109,6 +111,8 @@ class App:
 
     def refresh_info(self):
         self.data_drive = disk.find()
+        if self.data_drive:
+            config_manager.set_data_drive(self.data_drive)
         self.steam_path = steam.find_path()
         self.game_cfg = config_manager.get_games()
         if hasattr(self, 'steam_page'):
