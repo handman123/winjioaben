@@ -5,15 +5,18 @@ from tkinter import ttk, messagebox
 
 
 class AccountPanel(tk.LabelFrame):
-    """展示已保存的账号列表，支持保存/切换/更新/重命名/删除"""
+    """展示已保存的账号列表，支持保存/切换/更新/重命名/删除
 
-    def __init__(self, parent, app, core, *,
+    account_manager 必须实现 SupportsMultiAccount 接口。
+    """
+
+    def __init__(self, parent, app, account_manager, *,
                  on_save=None, on_switch=None, on_update=None,
                  on_rename=None, on_delete=None):
         super().__init__(parent, text="账号管理", bg="#f5f5f5",
                          font=("Microsoft YaHei", 9), padx=8, pady=4)
         self.app = app
-        self.core = core
+        self.account_manager = account_manager
         self._callbacks = {
             "save": on_save, "switch": on_switch, "update": on_update,
             "rename": on_rename, "delete": on_delete,
@@ -52,7 +55,7 @@ class AccountPanel(tk.LabelFrame):
 
     def refresh(self):
         self.tree.delete(*self.tree.get_children())
-        for acc in self.core.list_accounts():
+        for acc in self.account_manager.list_accounts():
             self.tree.insert("", "end",
                 values=(acc["name"], acc.get("updated_at", acc.get("created_at", ""))))
 

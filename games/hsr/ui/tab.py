@@ -1,62 +1,49 @@
-"""崩坏:星穹铁道 Tab — 组合: StatusPanel + AccountPanel + SaveListPanel + ActionBar + HistoryPanel"""
+"""崩坏:星穹铁道 Tab — 组合: StatusPanel + SaveListPanel + ActionBar + HistoryPanel
+账号管理待 HsrCore 实现 SupportsMultiAccount 后加入。
+"""
 
 import os
 import tkinter.messagebox as messagebox
 
 from games._base.base_tab import BaseGameTab
-from games._base.panels import StatusPanel, SaveListPanel, ActionBar, HistoryPanel, AccountPanel
+from games._base.panels import StatusPanel, SaveListPanel, ActionBar, HistoryPanel
 from games.hsr.core.manager import HsrCore
 from shared import config_manager
-from shared.exceptions import GameDataKeeperError, AccountExistsError
+from shared.exceptions import GameDataKeeperError
 
 
 class HsrTab(BaseGameTab):
     GAME_NAME = "崩坏:星穹铁道"
     GAME_ID = "honkai_star_rail"
     SAVE_PATTERNS = ["SaveData", "ScreenShot"]
-    SUPPORT_CREDENTIAL = True
+    SUPPORT_CREDENTIAL = False
     SUPPORT_DISCOVERY = False
     SUPPORT_PLATFORM = False
 
     def _create_core(self):
         return HsrCore(self.app)
 
-    # ── 面板组合 ──────────────────────────────────────
-
     def _build_ui(self):
         # 1. 系统状态
         self.status = StatusPanel(self, self.app)
         self.status.pack(fill="x", padx=10, pady=(10, 4))
 
-        # 2. 账号管理（崩铁特有）
-        self.account = AccountPanel(self, self.app, self.core,
-            on_save=self._on_save_account,
-            on_switch=self._on_switch_account,
-            on_update=self._on_update_account,
-            on_rename=self._on_rename_account,
-            on_delete=self._on_delete_account)
-        self.account.pack(fill="x", padx=10, pady=4)
-
-        # 3. 游戏存档列表
+        # 2. 游戏存档列表
         self.save_list = SaveListPanel(self, self.app,
             on_select=self._on_game_select)
         self.save_list.pack(fill="x", padx=10, pady=4)
 
-        # 4. 操作按钮
+        # 3. 操作按钮
         self.actions = ActionBar(self, actions=[
             {"label": "备份存档", "callback": self._on_backup_saves, "row": 0},
             {"label": "恢复存档", "callback": self._on_restore_saves, "row": 0},
-            {"label": "保存当前账号", "callback": self._on_save_account, "row": 1},
-            {"label": "切换账号", "callback": self._on_switch_account, "row": 1},
         ])
         self.actions.pack(fill="x", padx=10, pady=4)
 
-        # 5. 历史存档
+        # 4. 历史存档
         self.history = HistoryPanel(self, self.app,
             on_restore=self._on_restore_history)
         self.history.pack(fill="both", expand=True, padx=10, pady=4)
-
-    # ── 刷新 ──────────────────────────────────────────
 
     def update_info(self):
         dd = self.app.storage_root
@@ -64,11 +51,9 @@ class HsrTab(BaseGameTab):
             text=f"存档目录: {dd} (已连接)" if dd else "存档目录: 未检测到",
             fg="green" if dd else "red")
         games = config_manager.get_games()
-        if games:
-            self.status.lbl_save.config(text=f"已配置 {len(games)} 款游戏", fg="green")
-        else:
-            self.status.lbl_save.config(text="暂未配置游戏存档", fg="gray")
-        self.account.refresh()
+        self.status.lbl_save.config(
+            text=f"已配置 {len(games)} 款游戏" if games else "暂未配置游戏存档",
+            fg="green" if games else "gray")
         self.save_list.refresh()
         self._on_game_select(self.save_list.get_selected_game())
 
@@ -130,83 +115,3 @@ class HsrTab(BaseGameTab):
             try: self._do_restore_from_zip(target, os.path.dirname(zip_path), zip_name)
             except GameDataKeeperError: pass
         self.app.run_async(task, status="正在恢复...")
-
-    # ── 账号管理 ──────────────────────────────────────
-
-    def _on_save_account(self):
-        name = self._prompt_account_name("请输入新账号名称:")
-        if not name: return
-        self.app.run_async(
-            task=lambda: self._do_backup_credential(name),
-            on_done=lambda r: self._on_account_saved(r, name),
-            status="正在保存账号凭证..."
-        )
-
-    def _on_account_saved(self, result, name):
-        if isinstance(result, GameDataKeeperError):
-            if isinstance(result, AccountExistsError):
-                if messagebox.askyesno("账号已存在", f"[{name}] 已存在，是否覆盖更新？"):
-                    self.app.run_async(
-                        task=lambda: self.core.overwrite_credential(name),
-                        on_done=lambda r: self._on_account_overwritten(r, name),
-                        status="正在更新账号凭证...")
-                else: self.app.set_status("已取消")
-            else: messagebox.showerror("保存失败", str(result))
-        else:
-            self.app.set_status(f"账号 [{name}] 已保存", "green")
-            self.account.refresh()
-
-    def _on_account_overwritten(self, result, name):
-        if isinstance(result, Exception):
-            messagebox.showerror("更新失败", str(result))
-        else:
-            self.app.set_status(f"账号 [{name}] 已更新", "green")
-            self.account.refresh()
-
-    def _on_switch_account(self, name):
-        if not name: return
-        if not self._confirm("确认切换", f"将切换到账号 [{name}]，当前登录状态将被覆盖。\n\n是否继续？"):
-            self.app.set_status("已取消"); return
-        if self.core.is_platform_running():
-            if not messagebox.askyesno("游戏正在运行", "崩铁正在运行，需要先关闭。是否继续？"):
-                self.app.set_status("已取消"); return
-            self.core.kill_platform()
-
-        def task():
-            try: return self._do_restore_credential(name)
-            except GameDataKeeperError as e: return e
-        def done(r):
-            if isinstance(r, Exception): messagebox.showerror("切换失败", str(r))
-            else: self.app.set_status(f"已切换到 [{name}]，启动崩铁即可自动登录", "green")
-        self.app.run_async(task, on_done=done, status=f"正在切换到 [{name}]...")
-
-    def _on_update_account(self, name):
-        if not name: return
-        if not self._confirm("确认更新", f"将用当前登录状态覆盖 [{name}] 的凭证。\n\n是否继续？"):
-            self.app.set_status("已取消"); return
-        self.app.run_async(
-            task=lambda: self.core.overwrite_credential(name),
-            on_done=lambda r: self._on_account_overwritten(r, name),
-            status=f"正在更新 [{name}]...")
-
-    def _on_rename_account(self, name):
-        if not name: return
-        new_name = self._prompt_account_name(f"将 [{name}] 重命名为:")
-        if not new_name: return
-        try:
-            self.core.rename_account(name, new_name)
-            self.app.set_status(f"[{name}] → [{new_name}]", "green")
-            self.account.refresh()
-        except GameDataKeeperError as e:
-            messagebox.showerror("重命名失败", str(e))
-
-    def _on_delete_account(self, name):
-        if not name: return
-        if not self._confirm("确认删除", f"删除账号 [{name}] 的凭证？\n此操作不可撤销。"):
-            self.app.set_status("已取消"); return
-        try:
-            self.core.delete_account(name)
-            self.app.set_status(f"账号 [{name}] 已删除", "green")
-            self.account.refresh()
-        except GameDataKeeperError as e:
-            messagebox.showerror("删除失败", str(e))

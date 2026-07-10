@@ -28,7 +28,7 @@ class GenshinTab(BaseGameTab):
         self.status = StatusPanel(self, self.app)
         self.status.pack(fill="x", padx=10, pady=(10, 4))
 
-        # 2. 账号管理（原神特有）
+        # 2. 账号管理（core 实现 SupportsMultiAccount 接口）
         self.account = AccountPanel(self, self.app, self.core,
             on_save=self._on_save_account,
             on_switch=self._on_switch_account,

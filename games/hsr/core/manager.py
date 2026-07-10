@@ -1,4 +1,4 @@
-"""崩坏:星穹铁道 Core — 占位实现"""
+"""崩坏:星穹铁道 Core — 占位实现，账号功能待开发"""
 
 from games._base.base_core import BaseGameCore
 
@@ -22,3 +22,4 @@ class HsrCore(BaseGameCore):
     def restore_credential(self):
         # TODO: 实现崩铁账号凭证恢复
         raise NotImplementedError("崩铁凭证恢复尚未实现")
+
