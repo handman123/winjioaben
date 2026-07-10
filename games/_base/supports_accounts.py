@@ -8,7 +8,7 @@ class SupportsMultiAccount(ABC):
     多账号凭证管理接口。
 
     实现此接口的 Core 保证提供以下方法，
-    AccountPanel 依赖此接口而非具体 Core 类型。
+    AccountCard 依赖此接口而非具体 Core 类型。
     """
 
     @abstractmethod

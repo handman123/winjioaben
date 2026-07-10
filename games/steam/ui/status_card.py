@@ -29,15 +29,14 @@ class StatusCard(Card):
         self.lbl_count = tk.Label(bar, text="存档: 未配置", bg="#f5f5f5", anchor="w")
         self.lbl_count.pack(side="left", padx=10)
 
+    def set_platform(self, text: str):
+        self.lbl_steam.config(text=text, fg="green" if ":" in text else "red")
+
     def refresh(self):
         dd = self.app.storage_root
         self.lbl_disk.config(
             text=f"存档目录: {dd} (已连接)" if dd else "存档目录: 未检测到",
             fg="green" if dd else "red")
-        sp = self.app.core.find_platform_path()
-        self.lbl_steam.config(
-            text=f"Steam: {sp}" if sp else "Steam: 未找到",
-            fg="green" if sp else "red")
         games = config_manager.get_games()
         if games:
             self.lbl_count.config(text=f"已配置 {len(games)} 款游戏", fg="green")

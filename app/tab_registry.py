@@ -2,9 +2,9 @@
 
 
 class TabEntry:
-    def __init__(self, name: str, tab_class, core_class=None, icon: str = ""):
+    def __init__(self, name: str, page_class, core_class=None, icon: str = ""):
         self.name = name
-        self.tab_class = tab_class
+        self.page_class = page_class
         self.core_class = core_class
         self.icon = icon
 
@@ -14,8 +14,8 @@ class TabRegistry:
     _tabs: list[TabEntry] = []
 
     @classmethod
-    def register(cls, name: str, tab_class, core_class=None, icon: str = ""):
-        cls._tabs.append(TabEntry(name, tab_class, core_class, icon))
+    def register(cls, name: str, page_class, core_class=None, icon: str = ""):
+        cls._tabs.append(TabEntry(name, page_class, core_class, icon))
 
     @classmethod
     def get_all(cls) -> list[TabEntry]:

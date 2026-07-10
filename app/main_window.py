@@ -65,7 +65,7 @@ class App:
             return
 
         for entry in tabs:
-            self._make_tab(bar, container, entry.name, entry.tab_class)
+            self._make_tab(bar, container, entry.name, entry.page_class)
 
         # 默认激活第一个 Tab
         first_name = tabs[0].name

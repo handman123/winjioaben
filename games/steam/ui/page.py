@@ -33,6 +33,8 @@ class SteamPage(Page):
 
     def refresh(self):
         super().refresh()
+        sp = self.core.find_platform_path()
+        self.status.set_platform(f"Steam: {sp}" if sp else "Steam: 未找到")
 
     def _on_game_select(self, game):
         self.history.load(game)
