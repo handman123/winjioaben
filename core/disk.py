@@ -1,20 +1,31 @@
-import os, string
+import os, sys
 
-ID = "GameDataKeeper\\.datadisk_id"
+REQUIRED_DIRS = ["Steam/config", "Steam/ssfn", "Saves"]
 
-def find():
-    for l in string.ascii_uppercase:
-        if os.path.exists(os.path.join(f"{l}:", ID)):
-            return f"{l}:"
-    return None
+def _exe_dir():
+    if getattr(sys, 'frozen', False):
+        return os.path.dirname(sys.executable)
+    return os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
 
-def list_drives():
-    return [f"{l}:" for l in string.ascii_uppercase if os.path.exists(f"{l}:\\")]
+def get_root():
+    """返回存档根目录（exe 同级的 GameDataKeeper 目录）"""
+    return os.path.join(_exe_dir(), "GameDataKeeper")
 
-def init(drive):
-    root = os.path.join(drive, "GameDataKeeper")
-    for d in [root, f"{root}\\Steam\\config", f"{root}\\Steam\\ssfn", f"{root}\\Saves"]:
+def validate():
+    """检查目录结构是否符合规范，返回 (ok: bool, missing: [str])"""
+    root = get_root()
+    missing = []
+    if not os.path.isdir(root):
+        missing.append(root)
+    for d in REQUIRED_DIRS:
+        full = os.path.join(root, d)
+        if not os.path.isdir(full):
+            missing.append(full)
+    return len(missing) == 0, missing
+
+def ensure():
+    """确保目录结构存在（创建缺失的目录）"""
+    root = get_root()
+    for d in [root] + [os.path.join(root, x) for x in REQUIRED_DIRS]:
         os.makedirs(d, exist_ok=True)
-    with open(os.path.join(root, ".datadisk_id"), "w") as f:
-        f.write("# GameDataKeeper\n")
-    return True
+    return root

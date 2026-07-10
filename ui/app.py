@@ -1,9 +1,7 @@
 import tkinter as tk
 from tkinter import ttk, messagebox
-import threading
-import os, sys
+import threading, os, sys
 
-# Ensure core/ is importable
 sys.path.insert(0, os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
 
 from core import disk, steam, backup, discovery, config_manager
@@ -21,9 +19,21 @@ class App:
         self.root.minsize(600, 450)
         self.root.configure(bg="#f5f5f5")
 
-        self.data_drive = disk.find()
+        # 初始化存档目录
+        ok, missing = disk.validate()
+        if not ok:
+            msg = f"存档目录不完整，缺少:\n" + "\n".join(f"  {m}" for m in missing)
+            msg += "\n\n是否自动修复（创建缺失目录）？"
+            if messagebox.askyesno("目录修复", msg):
+                disk.ensure()
+            else:
+                messagebox.showerror("错误", "存档目录不完整，程序无法运行。")
+                self.root.destroy()
+                return
+
+        self.storage_root = disk.get_root()
         self.steam_path = steam.find_path()
-        self.game_cfg = config_manager.get_game()
+        self.game_cfg = config_manager.get_games()
 
         self._build_tabbar()
         self._build_statusbar()
@@ -33,7 +43,6 @@ class App:
         bar = tk.Frame(self.root, bg="#e6e6e6", height=36)
         bar.pack(fill="x", side="top")
         bar.pack_propagate(False)
-
         self.tab_btns = {}
         self.tab_frames = {}
         container = tk.Frame(self.root, bg="#f5f5f5")
@@ -85,17 +94,12 @@ class App:
         self.progress.pack_forget()
 
     def run_async(self, task, on_done=None, status="处理中..."):
-        """Run task in background thread to keep UI responsive."""
         self.set_status(status, "blue")
         self.show_progress()
-
         def wrapper():
-            try:
-                result = task()
-            except Exception as e:
-                result = e
+            try: result = task()
+            except Exception as e: result = e
             self.root.after(0, lambda: self._on_task_done(result, on_done))
-
         threading.Thread(target=wrapper, daemon=True).start()
 
     def _on_task_done(self, result, on_done):
@@ -108,8 +112,8 @@ class App:
         self.refresh_info()
 
     def refresh_info(self):
-        self.data_drive = disk.find()
+        self.storage_root = disk.get_root()
         self.steam_path = steam.find_path()
-        self.game_cfg = config_manager.get_game()
+        self.game_cfg = config_manager.get_games()
         if hasattr(self, 'steam_page'):
             self.steam_page.update_info()
